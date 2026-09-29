@@ -4,7 +4,6 @@
 #include "log_entry.hpp"
 #include "log_io_segment.hpp"
 #include "log_worker.hpp"
-#include "typedefs.hpp"
 #include "wal_block_manager.hpp"
 
 #include <atomic>
@@ -53,6 +52,7 @@ public:
     // its lifetime. Returns a reference to the process-wide instance.
     static LogManager& Instance();
     static void SetInstance(LogManager* mgr);
+    static bool HasInstance() { return s_instance_ != nullptr; }
 
     // Init / shutdown.
     void StartWorkers();

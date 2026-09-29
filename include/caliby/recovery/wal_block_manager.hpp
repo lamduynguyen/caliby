@@ -1,6 +1,6 @@
 #pragma once
 
-#include "typedefs.hpp"
+#include "log_entry.hpp"
 
 #include <atomic>
 #include <cstdint>

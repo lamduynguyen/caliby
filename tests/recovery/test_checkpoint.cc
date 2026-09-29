@@ -1,4 +1,4 @@
-// Cloned from whateverstore/test/recovery/test_checkpoint.cc
+// Cloned from LeanStore/test/recovery/test_checkpoint.cc
 // Tests that the checkpointer only recycles CLOSED blocks whose GSN is at
 // most the durable frontier.
 #include "recovery/checkpoint.hpp"

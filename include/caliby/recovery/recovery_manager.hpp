@@ -4,7 +4,6 @@
 #include "log_io_segment.hpp"
 #include "log_manager.hpp"
 #include "recovery_backend.hpp"
-#include "typedefs.hpp"
 
 #include <atomic>
 #include <cstdint>

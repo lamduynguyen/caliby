@@ -5,7 +5,27 @@ The recovery subsystem skeleton already exists under `src/recovery/` + `include/
 
 ---
 
+## Progress checklist
+
+- [x] Phase 1 — Transaction abstraction (`caliby::tx`, no nesting/TxType, sync commit durability)
+- [x] Phase 2 — GSN plumbing (`p_gsn` on pages, derived dirty, WAL-gated eviction/flush)
+- [ ] Phase 3 — Guard-mediated log emission
+- [ ] Phase 4 — Group commit & WAL durability (Phase 1 interim: synchronous fdatasync per commit)
+- [ ] Phase 5 — Fuzzy checkpointer (still flushAll stub)
+- [ ] Phase 6 — Recovery Analysis + Redo wiring (stubs empty)
+- [ ] Phase 7 — Gaps: extents, undo, multi-worker scaling, Python binding surface
+
+Per-phase sections below record what shipped vs. the original draft.
+
+---
+
 ## Current state (baseline facts, with pointers)
+
+> **STALE — pre-Phase-1/2 snapshot.** Kept for provenance; the checklist above and the
+> phase sections describe the current tree. Baseline facts that changed: `Page::dirty`
+> is replaced by first-member `u64 p_gsn` on every page struct; dirty is derived
+> (`pageIsDirty` = `p_gsn > lastWrittenGsnOf(pid)`); eviction/flush are WAL-gated;
+> `markPageDirty/markPageClean` helpers exist; `flushAll` batches + `markPageWritten`.
 
 - `Page` (calico.hpp:54) carries `bool dirty`; mutated by guard constructors
   (`GuardX` at calico.hpp:1307, `AllocGuard` :1376, OLC upgrade :1321).
@@ -23,6 +43,20 @@ The recovery subsystem skeleton already exists under `src/recovery/` + `include/
 ---
 
 ## Phase 1 — Transaction abstraction
+
+**STATUS: DONE.** Shipped vs. original draft:
+
+- Namespace `caliby::tx` (not `caliby::transaction`); thread_local
+  `tl_active_txn` + `active_txn()` accessor + `TransactionAutoCommitScope` RAII
+  (only controller; `TransactionController` name dropped).
+- **No TxType, no nesting** (deprecated per user decision); `EnterTxn` asserts `!IsRunning`.
+- `next_txn_id` atomic; `typedefs.hpp` deleted (aliases moved to `recovery/log_entry.hpp`).
+- `CommitTransaction()`: TX_COMMIT + serialized GSN vector, then **synchronous** durability
+  (LogFlush + fdatasync + AdvanceFlushWatermark) — interim until Phase 4 group commit.
+- Start path syncs worker GSN clock to `global_sync_to_this_gsn` (as planned).
+- `LocalLogWorker()` = `workerThreadId % workers_.size()` (was worker 0);
+  `HasInstance()` added; LogManager ctor calls `SetInstance(this)`.
+- Tests: `tests/recovery/test_transaction.cc` (TestTransaction, 8 tests).
 
 Goal: a TLS transaction context that wraps every write operation, exactly like LeanStore's
 `transaction::Transaction::active_txn`.

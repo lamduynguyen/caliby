@@ -3,7 +3,6 @@
 #include "log_buffer.hpp"
 #include "log_entry.hpp"
 #include "log_io_segment.hpp"
-#include "typedefs.hpp"
 #include "wal_block_manager.hpp"
 
 #include <atomic>

@@ -1,8 +1,8 @@
 #include "recovery/log_manager.hpp"
-
 #include "logging.hpp"
 #include "recovery/checkpoint.hpp"
 #include "recovery/log_io_segment.hpp"
+#include "calico.hpp"
 
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -47,6 +47,7 @@ int fdatasync_fd(int fd) {
 
 LogManager::LogManager(std::atomic<bool>& is_running, const std::string& wal_path)
     : is_running_(&is_running), wal_path_(wal_path) {
+    SetInstance(this);
     wal_block_size = env_u64("CALIBY_WAL_BLOCK_SIZE_MB", 1) * 1024ull * 1024;
     wal_size_mb    = env_u64("CALIBY_WAL_SIZE_MB", 64);
     buffer_size_mb = env_u64("CALIBY_WAL_BUFFER_SIZE_MB", 4);
@@ -141,8 +142,13 @@ void LogManager::StopBackgroundThreads() {
 }
 
 LogWorker& LogManager::LocalLogWorker() {
-    // Caliby currently has a single worker; thread_id 0 is always valid.
-    return *workers_[0];
+    // Map the thread-local Caliby worker id onto a LogWorker slot. Threads
+    // beyond num_workers round-robin onto the existing workers (safe: each
+    // LogWorker is an independent buffer and matches LeanStore sub-worker
+    // sharing).
+    uint16_t tid = workerThreadId;
+    uint32_t slot = static_cast<uint32_t>(tid) % static_cast<uint32_t>(workers_.size());
+    return *workers_[slot];
 }
 
 WALBlock* LogManager::OpenNextBlock() {

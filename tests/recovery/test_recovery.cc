@@ -1,4 +1,4 @@
-// Cloned from whateverstore/test/recovery/test_recovery.cc (leanstore version).
+// Cloned from LeanStore/test/recovery/test_recovery.cc (leanstore version).
 // Cloned test for log entry round-tripping and recovery: write a small
 // transaction (TX_START + N data logs + TX_COMMIT), flush, then re-read
 // the chunk and verify analysis.

@@ -66,6 +66,7 @@ set(ABSL_LIBS
 # Source files for the core library
 set(CALIBY_SOURCES
     src/calico.cpp
+    src/transaction.cpp
     src/hnsw.cpp
     src/diskann.cpp
     src/distance_diskann.cpp

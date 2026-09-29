@@ -2,7 +2,6 @@
 
 #include "log_entry.hpp"
 #include "log_manager.hpp"
-#include "typedefs.hpp"
 
 #include <cstdint>
 #include <functional>

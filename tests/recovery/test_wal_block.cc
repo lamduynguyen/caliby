@@ -1,7 +1,6 @@
-// Cloned from whateverstore/test/recovery/test_wal_block.cc
+// Cloned from LeanStore/test/recovery/test_wal_block.cc
 // Tests the logical ring of WAL blocks: open, close, recycle, back-pressure.
 
-#include "recovery/typedefs.hpp"
 #include "recovery/wal_block_manager.hpp"
 
 #include <gtest/gtest.h>
