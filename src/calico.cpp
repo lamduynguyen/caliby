@@ -799,6 +799,7 @@ void LibaioInterface::writePages(const vector<PID>& pages) {
     }
 }
 
+
 void LibaioInterface::readPages(const vector<PID>& pages, const vector<Page*>& destinations) {
     assert(pages.size() == destinations.size());
     assert(pages.size() <= maxIOs);
@@ -2273,35 +2274,37 @@ void BufferManager::forceEvictPortion(float portion) {
     vector<PID> toWrite;
     vector<PID> toEvict;
     vector<u64> toWriteGsn;
+    // classify one candidate page: dirty+gated+lockable -> toWrite, clean -> toEvict, else skip
+    auto consider = [&](PID pid, PageState& ps, u64 v) {
+        if (!evictable(pid)) return;  // no backing file / global NS: keep resident
+        Page* page = residentPtr(pid);
+        u64 page_gsn = page->p_gsn;
+        if (page_gsn > lastWrittenGsnOf(pid)) {  // derived dirty
+            if (page_gsn <= gsnLimit && ps.tryLockS(v)) {  // WAL gate
+                toWrite.push_back(pid);
+                toWriteGsn.push_back(page_gsn);
+            }
+            // gated or lock contention: skip, page stays resident
+        } else {
+            toEvict.push_back(pid);
+        }
+    };
     for (u64 i = 0; i < residentSet.count && toEvict.size() < targetEvictions; ++i) {
         PID pid = residentSet.ht[i].pid.load();
         if (pid == residentSet.empty || pid == residentSet.tombstone) continue;
         PageState& ps = getPageState(pid);
         u64 v = ps.stateAndVersion;
         switch (PageState::getState(v)) {
-            case PageState::Unlocked: {
-                if (!evictable(pid))
-                    break;  // no backing file / global NS: keep resident
-                ps.tryMark(v);
-                toEvict.push_back(pid);
-                break;
-            }
-            case PageState::Marked: {
-                Page* page = residentPtr(pid);
-                u64 page_gsn = page->p_gsn;
-                if (!evictable(pid))
-                    break;  // no backing file / global NS: keep resident
-                if (page_gsn > lastWrittenGsnOf(pid)) {  // derived dirty
-                    if (page_gsn <= gsnLimit && ps.tryLockS(v)) {
-                        toWrite.push_back(pid);
-                        toWriteGsn.push_back(page_gsn);
-                    }
-                    // dirty + (gated or lock contention): skip, not evictable
-                } else {
-                    toEvict.push_back(pid);
+            case PageState::Unlocked:
+                if (!evictable(pid)) break;  // don't even mark pinned pages
+                if (ps.tryMark(v)) {
+                    v = ps.stateAndVersion.load();  // tryMark may change state+version
+                    consider(pid, ps, v);
                 }
                 break;
-            }
+            case PageState::Marked:
+                consider(pid, ps, v);
+                break;
             default:
                 break;  // currently locked by another thread: skip
         }
